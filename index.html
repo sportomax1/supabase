@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase CRUD App</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <style>
         * {
             margin: 0;
@@ -73,22 +73,25 @@
             margin-bottom: 30px;
             font-size: 28px;
         }
-        .config-upload {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
+        .table-selector {
+            margin-bottom: 20px;
         }
-        .file-input-wrapper {
-            display: flex;
-            gap: 10px;
-            align-items: center;
+        .table-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
         }
-        input[type="file"] {
-            padding: 10px;
+        select {
+            width: 100%;
+            padding: 12px;
             border: 2px solid #ddd;
             border-radius: 6px;
-            flex: 1;
+            font-size: 16px;
+            outline: none;
+        }
+        select:focus {
+            border-color: #667eea;
         }
         .btn {
             padding: 10px 20px;
@@ -99,6 +102,7 @@
             cursor: pointer;
             font-size: 14px;
             transition: background 0.3s;
+            font-weight: 500;
         }
         .btn:hover {
             background: #5568d3;
@@ -118,20 +122,6 @@
         }
         .btn-success:hover {
             background: #27ae60;
-        }
-        .table-selector {
-            margin-bottom: 20px;
-        }
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
-            outline: none;
-        }
-        select:focus {
-            border-color: #667eea;
         }
         .controls {
             display: flex;
@@ -156,6 +146,7 @@
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            white-space: nowrap;
         }
         th {
             background: #f8f9fa;
@@ -165,7 +156,7 @@
             top: 0;
             z-index: 10;
         }
-        tr:hover {
+        tbody tr:hover {
             background: #f8f9fa;
         }
         .actions {
@@ -173,8 +164,8 @@
             gap: 5px;
         }
         .btn-small {
-            padding: 5px 10px;
-            font-size: 12px;
+            padding: 6px 12px;
+            font-size: 13px;
         }
         .modal {
             display: none;
@@ -199,6 +190,10 @@
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
+        }
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
         }
         .form-group {
             margin-bottom: 15px;
@@ -231,7 +226,7 @@
             margin-top: 20px;
         }
         .status-msg {
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             margin-bottom: 20px;
             display: none;
@@ -250,11 +245,17 @@
             color: #666;
             font-size: 14px;
             margin-bottom: 15px;
+            font-weight: 500;
         }
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 40px;
             color: #666;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
         }
     </style>
 </head>
@@ -264,10 +265,10 @@
         <h1>🔒 Secure Access</h1>
         <p>Enter your 4-digit passcode to continue</p>
         <div class="passcode-input">
-            <input type="password" maxlength="1" class="passcode-digit" id="digit1">
-            <input type="password" maxlength="1" class="passcode-digit" id="digit2">
-            <input type="password" maxlength="1" class="passcode-digit" id="digit3">
-            <input type="password" maxlength="1" class="passcode-digit" id="digit4">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit1" autocomplete="off">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit2" autocomplete="off">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit3" autocomplete="off">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit4" autocomplete="off">
         </div>
         <div id="passcodeError" class="error-msg"></div>
     </div>
@@ -276,47 +277,40 @@
     <div id="mainApp" class="main-app hidden">
         <h1>📊 Supabase Data Manager</h1>
         
-        <div class="config-upload">
-            <h3 style="margin-bottom: 15px;">Configuration</h3>
-            <div class="file-input-wrapper">
-                <input type="file" id="configFile" accept=".yml,.yaml">
-                <button class="btn" onclick="loadConfig()">Load Config</button>
-            </div>
-            <div id="statusMsg" class="status-msg"></div>
-        </div>
+        <div id="statusMsg" class="status-msg"></div>
 
         <div class="table-selector">
-            <label for="tableSelect"><strong>Select Table:</strong></label>
-            <select id="tableSelect" onchange="loadTableData()" disabled>
-                <option value="">-- Load config first --</option>
+            <label for="tableSelect">Select Table:</label>
+            <select id="tableSelect" onchange="onTableChange()">
+                <option value="">-- Choose a table --</option>
             </select>
         </div>
 
         <div class="record-count" id="recordCount"></div>
 
         <div class="controls">
-            <button class="btn btn-success" onclick="openCreateModal()" id="addBtn" disabled>+ Add New Record</button>
-            <button class="btn" onclick="loadTableData()" id="refreshBtn" disabled>🔄 Refresh</button>
-            <button class="btn" onclick="exportToCSV()" id="exportBtn" disabled>📥 Export CSV</button>
+            <button class="btn btn-success" onclick="openCreateModal()" id="addBtn">+ Add New Record</button>
+            <button class="btn" onclick="loadTableData()" id="refreshBtn">🔄 Refresh</button>
+            <button class="btn" onclick="exportToCSV()" id="exportBtn">📥 Export CSV</button>
         </div>
 
         <div class="data-grid">
             <table id="dataTable">
                 <thead id="tableHead"></thead>
                 <tbody id="tableBody">
-                    <tr><td style="text-align:center; padding: 40px;">Load a config file to get started</td></tr>
+                    <tr><td class="empty-state">Select a table to view data</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <!-- Modal for Create/Edit -->
-    <div id="recordModal" class="modal">
-        <div class="modal-content">
+    <div id="recordModal" class="modal" onclick="closeModalOnOutsideClick(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <h2 id="modalTitle">Add New Record</h2>
-            <form id="recordForm"></form>
+            <form id="recordForm" onsubmit="event.preventDefault(); saveRecord();"></form>
             <div class="modal-actions">
-                <button class="btn btn-success" onclick="saveRecord()">Save</button>
+                <button class="btn btn-success" onclick="saveRecord()">💾 Save</button>
                 <button class="btn" onclick="closeModal()">Cancel</button>
             </div>
         </div>
@@ -327,9 +321,16 @@
         let supabaseClient = null;
         let currentTable = '';
         let editingId = null;
-        let config = null;
+        let appConfig = null;
         let tableColumns = {};
         let currentData = [];
+
+        // Check if config is loaded
+        if (typeof CONFIG === 'undefined') {
+            document.body.innerHTML = '<div style="text-align:center; padding:50px; color:white;"><h1>⚠️ Configuration Error</h1><p>App is not properly deployed. Please deploy via GitHub Actions.</p></div>';
+        } else {
+            appConfig = CONFIG;
+        }
 
         // Passcode handling
         const digits = [
@@ -368,65 +369,47 @@
         function checkPasscode() {
             const passcode = digits.map(d => d.value).join('');
             if (passcode.length === 4) {
-                sessionStorage.setItem('enteredPasscode', passcode);
-                document.getElementById('passcodeScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-            }
-        }
-
-        async function loadConfig() {
-            const fileInput = document.getElementById('configFile');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                showStatus('Please select a config file', 'error');
-                return;
-            }
-
-            try {
-                const text = await file.text();
-                config = jsyaml.load(text);
-                
-                // Validate passcode
-                const enteredPasscode = sessionStorage.getItem('enteredPasscode');
-                if (config.app_passcode && enteredPasscode !== config.app_passcode) {
-                    showStatus('Invalid passcode! Please reload and try again.', 'error');
-                    setTimeout(() => location.reload(), 2000);
-                    return;
+                if (passcode === appConfig.app_passcode) {
+                    sessionStorage.setItem('authenticated', 'true');
+                    document.getElementById('passcodeScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    initializeApp();
+                } else {
+                    document.getElementById('passcodeError').textContent = 'Invalid passcode. Try again.';
+                    digits.forEach(d => d.value = '');
+                    digits[0].focus();
                 }
-
-                // Initialize Supabase with service key if available, otherwise use anon key
-                const apiKey = config.supabase_service_key || config.supabase_api_key;
-                supabaseClient = createClient(config.supabase_url, apiKey);
-                
-                // Load available tables
-                await loadTables();
-                showStatus('Configuration loaded successfully! ' + (config.supabase_service_key ? '(Using Service Key)' : '(Using Anon Key)'), 'success');
-                
-                // Enable buttons
-                document.getElementById('tableSelect').disabled = false;
-                document.getElementById('addBtn').disabled = false;
-                document.getElementById('refreshBtn').disabled = false;
-                document.getElementById('exportBtn').disabled = false;
-                
-            } catch (error) {
-                showStatus('Error loading config: ' + error.message, 'error');
             }
         }
 
-        async function loadTables() {
+        function initializeApp() {
+            // Initialize Supabase with service key if available, otherwise use anon key
+            const apiKey = appConfig.supabase_service_key || appConfig.supabase_api_key;
+            supabaseClient = createClient(appConfig.supabase_url, apiKey);
+            
+            // Load tables into dropdown
             const select = document.getElementById('tableSelect');
             select.innerHTML = '<option value="">-- Choose a table --</option>';
             
-            if (config.tables && config.tables.length > 0) {
-                config.tables.forEach(table => {
+            if (appConfig.tables && appConfig.tables.length > 0) {
+                appConfig.tables.forEach(table => {
                     const option = document.createElement('option');
                     option.value = table;
                     option.textContent = table;
                     select.appendChild(option);
                 });
+            }
+            
+            showStatus('✓ Connected successfully! ' + (appConfig.supabase_service_key ? '(Using Service Key)' : '(Using Anon Key)'), 'success');
+        }
+
+        function onTableChange() {
+            const table = document.getElementById('tableSelect').value;
+            if (table) {
+                loadTableData();
             } else {
-                showStatus('No tables defined in config. Add table names to config.yml', 'error');
+                document.getElementById('tableBody').innerHTML = '<tr><td class="empty-state">Select a table to view data</td></tr>';
+                document.getElementById('recordCount').textContent = '';
             }
         }
 
@@ -449,7 +432,6 @@
 
                 currentData = data || [];
                 
-                // Get column info if we have data
                 if (data && data.length > 0) {
                     tableColumns[currentTable] = Object.keys(data[0]);
                 }
@@ -460,18 +442,20 @@
             } catch (error) {
                 showStatus('Error loading data: ' + error.message, 'error');
                 document.getElementById('tableBody').innerHTML = 
-                    `<tr><td colspan="100%" style="text-align:center; color: #e74c3c;">Error: ${error.message}</td></tr>`;
+                    `<tr><td colspan="100%" style="text-align:center; color: #e74c3c; padding: 40px;">Error: ${error.message}</td></tr>`;
+                document.getElementById('recordCount').textContent = '';
             }
         }
 
         function showLoading() {
             document.getElementById('tableBody').innerHTML = 
-                '<tr><td colspan="100%" class="loading">Loading data...</td></tr>';
+                '<tr><td colspan="100%" class="loading">⏳ Loading data...</td></tr>';
+            document.getElementById('recordCount').textContent = '';
         }
 
         function updateRecordCount(count) {
             document.getElementById('recordCount').textContent = 
-                `Showing ${count} record${count !== 1 ? 's' : ''}`;
+                `📊 Showing ${count} record${count !== 1 ? 's' : ''}`;
         }
 
         function displayData(data) {
@@ -482,11 +466,10 @@
             tbody.innerHTML = '';
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="100%" style="text-align:center; padding: 40px;">No data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="100%" class="empty-state">No data found in this table</td></tr>';
                 return;
             }
 
-            // Create header
             const headers = Object.keys(data[0]);
             const headerRow = document.createElement('tr');
             headers.forEach(header => {
@@ -500,19 +483,19 @@
             headerRow.appendChild(actionTh);
             thead.appendChild(headerRow);
 
-            // Create rows
             data.forEach(row => {
                 const tr = document.createElement('tr');
                 headers.forEach(header => {
                     const td = document.createElement('td');
                     const value = row[header];
                     
-                    // Format display
                     if (value === null) {
                         td.textContent = 'NULL';
                         td.style.color = '#999';
+                        td.style.fontStyle = 'italic';
                     } else if (typeof value === 'object') {
                         td.textContent = JSON.stringify(value);
+                        td.style.fontSize = '12px';
                     } else if (typeof value === 'boolean') {
                         td.textContent = value ? '✓' : '✗';
                     } else {
@@ -526,8 +509,8 @@
                 const rowData = JSON.stringify(row).replace(/"/g, '&quot;');
                 actionTd.innerHTML = `
                     <div class="actions">
-                        <button class="btn btn-small" onclick='editRecord(${rowData})'>Edit</button>
-                        <button class="btn btn-small btn-danger" onclick="deleteRecord('${row.id}')">Delete</button>
+                        <button class="btn btn-small" onclick='editRecord(${rowData})'>✏️ Edit</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteRecord('${row.id}')">🗑️ Delete</button>
                     </div>
                 `;
                 tr.appendChild(actionTd);
@@ -572,7 +555,6 @@
                 const value = data[col];
                 let input;
                 
-                // Detect field type and create appropriate input
                 if (typeof value === 'boolean' || col.includes('is_') || col.includes('has_')) {
                     input = document.createElement('select');
                     input.innerHTML = `
@@ -582,7 +564,7 @@
                 } else if (typeof value === 'object' && value !== null) {
                     input = document.createElement('textarea');
                     input.value = JSON.stringify(value, null, 2);
-                } else if (col.includes('description') || col.includes('content') || col.includes('text')) {
+                } else if (col.includes('description') || col.includes('content') || col.includes('text') || col.includes('note')) {
                     input = document.createElement('textarea');
                     input.value = value || '';
                 } else {
@@ -605,10 +587,8 @@
             const record = {};
             
             for (let [key, value] of formData.entries()) {
-                // Handle boolean values
                 if (value === 'true') record[key] = true;
                 else if (value === 'false') record[key] = false;
-                // Try to parse JSON
                 else if (value.startsWith('{') || value.startsWith('[')) {
                     try {
                         record[key] = JSON.parse(value);
@@ -616,7 +596,6 @@
                         record[key] = value;
                     }
                 }
-                // Handle empty strings as null
                 else if (value === '') record[key] = null;
                 else record[key] = value;
             }
@@ -629,7 +608,7 @@
                         .eq('id', editingId);
                     
                     if (error) throw error;
-                    showStatus('Record updated successfully!', 'success');
+                    showStatus('✓ Record updated successfully!', 'success');
                     
                 } else {
                     const { error } = await supabaseClient
@@ -637,7 +616,7 @@
                         .insert([record]);
                     
                     if (error) throw error;
-                    showStatus('Record created successfully!', 'success');
+                    showStatus('✓ Record created successfully!', 'success');
                 }
                 
                 closeModal();
@@ -649,7 +628,7 @@
         }
 
         async function deleteRecord(id) {
-            if (!confirm('Are you sure you want to delete this record?')) {
+            if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
                 return;
             }
 
@@ -661,7 +640,7 @@
                 
                 if (error) throw error;
                 
-                showStatus('Record deleted successfully!', 'success');
+                showStatus('✓ Record deleted successfully!', 'success');
                 loadTableData();
                 
             } catch (error) {
@@ -696,11 +675,17 @@
             a.click();
             URL.revokeObjectURL(url);
             
-            showStatus('Data exported successfully!', 'success');
+            showStatus('✓ Data exported successfully!', 'success');
         }
 
         function closeModal() {
             document.getElementById('recordModal').classList.remove('active');
+        }
+
+        function closeModalOnOutsideClick(event) {
+            if (event.target.id === 'recordModal') {
+                closeModal();
+            }
         }
 
         function showStatus(message, type) {
@@ -714,7 +699,9 @@
         }
 
         // Initialize
-        digits[0].focus();
+        if (appConfig) {
+            digits[0].focus();
+        }
     </script>
 </body>
 </html>
