@@ -5,34 +5,54 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Create config.js with secrets
-      run: |
-        cat > config.js << 'EOF'
-        window.APP_CONFIG = {
-          app_passcode: "${{ secrets.APP_PASSCODE }}",
-          supabase_url: "${{ secrets.SUPABASE_URL }}",
-          supabase_api_key: "${{ secrets.SUPABASE_API_KEY }}",
-          supabase_service_key: "${{ secrets.SUPABASE_SERVICE_KEY }}",
-          tables: ["users", "posts", "comments", "products", "orders"]
-        };
-        EOF
-        
-        echo "Config file created successfully"
-    
-    - name: Commit config.js to main branch
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add config.js
-        git diff --staged --quiet || git commit -m "Auto-generated config.js with secrets"
-        git push
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create config.js with secrets
+        run: |
+          echo "Creating config.js..."
+          cat > config.js << 'EOL'
+          const CONFIG = {
+              app_passcode: "${{ secrets.APP_PASSCODE }}",
+              supabase_url: "${{ secrets.SUPABASE_URL }}",
+              supabase_api_key: "${{ secrets.SUPABASE_API_KEY }}",
+              supabase_service_key: "${{ secrets.SUPABASE_SERVICE_KEY }}",
+              tables: ["users", "posts", "comments", "products", "orders"]
+          };
+          EOL
+          echo "config.js created successfully!"
+
+      - name: Verify config.js (debug)
+        run: |
+          echo "=== config.js contents (secrets masked) ==="
+          cat config.js | sed 's/app_passcode: "[^"]*"/app_passcode: "****"/g' | sed 's/supabase_url: "[^"]*"/supabase_url: "URL_MASKED"/g' | sed 's/supabase_api_key: "[^"]*"/supabase_api_key: "KEY_MASKED"/g' | sed 's/supabase_service_key: "[^"]*"/supabase_service_key: "KEY_MASKED"/g'
+          echo "=== End of config.js ==="
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
