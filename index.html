@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase CRUD App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .passcode-screen, .main-app {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .passcode-screen {
+            max-width: 400px;
+            text-align: center;
+        }
+        .passcode-screen h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .passcode-screen p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .passcode-input {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .passcode-digit {
+            width: 60px;
+            height: 60px;
+            font-size: 32px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .passcode-digit:focus {
+            border-color: #667eea;
+        }
+        .error-msg {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .hidden {
+            display: none;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .config-upload {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .file-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            flex: 1;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-danger {
+            background: #e74c3c;
+        }
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        .btn-success {
+            background: #2ecc71;
+        }
+        .btn-success:hover {
+            background: #27ae60;
+        }
+        .table-selector {
+            margin-bottom: 20px;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            outline: none;
+        }
+        select:focus {
+            border-color: #667eea;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .data-grid {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .status-msg {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .status-msg.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status-msg.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .record-count {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Passcode Screen -->
+    <div id="passcodeScreen" class="passcode-screen">
+        <h1>🔒 Secure Access</h1>
+        <p>Enter your 4-digit passcode to continue</p>
+        <div class="passcode-input">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit1">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit2">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit3">
+            <input type="password" maxlength="1" class="passcode-digit" id="digit4">
+        </div>
+        <div id="passcodeError" class="error-msg"></div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="main-app hidden">
+        <h1>📊 Supabase Data Manager</h1>
+        
+        <div class="config-upload">
+            <h3 style="margin-bottom: 15px;">Configuration</h3>
+            <div class="file-input-wrapper">
+                <input type="file" id="configFile" accept=".yml,.yaml">
+                <button class="btn" onclick="loadConfig()">Load Config</button>
+            </div>
+            <div id="statusMsg" class="status-msg"></div>
+        </div>
+
+        <div class="table-selector">
+            <label for="tableSelect"><strong>Select Table:</strong></label>
+            <select id="tableSelect" onchange="loadTableData()" disabled>
+                <option value="">-- Load config first --</option>
+            </select>
+        </div>
+
+        <div class="record-count" id="recordCount"></div>
+
+        <div class="controls">
+            <button class="btn btn-success" onclick="openCreateModal()" id="addBtn" disabled>+ Add New Record</button>
+            <button class="btn" onclick="loadTableData()" id="refreshBtn" disabled>🔄 Refresh</button>
+            <button class="btn" onclick="exportToCSV()" id="exportBtn" disabled>📥 Export CSV</button>
+        </div>
+
+        <div class="data-grid">
+            <table id="dataTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody">
+                    <tr><td style="text-align:center; padding: 40px;">Load a config file to get started</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal for Create/Edit -->
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Add New Record</h2>
+            <form id="recordForm"></form>
+            <div class="modal-actions">
+                <button class="btn btn-success" onclick="saveRecord()">Save</button>
+                <button class="btn" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        let supabaseClient = null;
+        let currentTable = '';
+        let editingId = null;
+        let config = null;
+        let tableColumns = {};
+        let currentData = [];
+
+        // Passcode handling
+        const digits = [
+            document.getElementById('digit1'),
+            document.getElementById('digit2'),
+            document.getElementById('digit3'),
+            document.getElementById('digit4')
+        ];
+
+        digits.forEach((digit, index) => {
+            digit.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < 3) {
+                    digits[index + 1].focus();
+                }
+                checkPasscode();
+            });
+
+            digit.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    digits[index - 1].focus();
+                }
+            });
+
+            digit.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const paste = e.clipboardData.getData('text');
+                if (paste.length === 4 && /^\d{4}$/.test(paste)) {
+                    paste.split('').forEach((char, i) => {
+                        if (digits[i]) digits[i].value = char;
+                    });
+                    checkPasscode();
+                }
+            });
+        });
+
+        function checkPasscode() {
+            const passcode = digits.map(d => d.value).join('');
+            if (passcode.length === 4) {
+                sessionStorage.setItem('enteredPasscode', passcode);
+                document.getElementById('passcodeScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+            }
+        }
+
+        async function loadConfig() {
+            const fileInput = document.getElementById('configFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Please select a config file', 'error');
+                return;
+            }
+
+            try {
+                const text = await file.text();
+                config = jsyaml.load(text);
+                
+                // Validate passcode
+                const enteredPasscode = sessionStorage.getItem('enteredPasscode');
+                if (config.app_passcode && enteredPasscode !== config.app_passcode) {
+                    showStatus('Invalid passcode! Please reload and try again.', 'error');
+                    setTimeout(() => location.reload(), 2000);
+                    return;
+                }
+
+                // Initialize Supabase with service key if available, otherwise use anon key
+                const apiKey = config.supabase_service_key || config.supabase_api_key;
+                supabaseClient = createClient(config.supabase_url, apiKey);
+                
+                // Load available tables
+                await loadTables();
+                showStatus('Configuration loaded successfully! ' + (config.supabase_service_key ? '(Using Service Key)' : '(Using Anon Key)'), 'success');
+                
+                // Enable buttons
+                document.getElementById('tableSelect').disabled = false;
+                document.getElementById('addBtn').disabled = false;
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('exportBtn').disabled = false;
+                
+            } catch (error) {
+                showStatus('Error loading config: ' + error.message, 'error');
+            }
+        }
+
+        async function loadTables() {
+            const select = document.getElementById('tableSelect');
+            select.innerHTML = '<option value="">-- Choose a table --</option>';
+            
+            if (config.tables && config.tables.length > 0) {
+                config.tables.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table;
+                    option.textContent = table;
+                    select.appendChild(option);
+                });
+            } else {
+                showStatus('No tables defined in config. Add table names to config.yml', 'error');
+            }
+        }
+
+        async function loadTableData() {
+            currentTable = document.getElementById('tableSelect').value;
+            
+            if (!currentTable || !supabaseClient) {
+                return;
+            }
+
+            try {
+                showLoading();
+                
+                const { data, error } = await supabaseClient
+                    .from(currentTable)
+                    .select('*')
+                    .order('id', { ascending: false });
+
+                if (error) throw error;
+
+                currentData = data || [];
+                
+                // Get column info if we have data
+                if (data && data.length > 0) {
+                    tableColumns[currentTable] = Object.keys(data[0]);
+                }
+
+                displayData(currentData);
+                updateRecordCount(currentData.length);
+                
+            } catch (error) {
+                showStatus('Error loading data: ' + error.message, 'error');
+                document.getElementById('tableBody').innerHTML = 
+                    `<tr><td colspan="100%" style="text-align:center; color: #e74c3c;">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('tableBody').innerHTML = 
+                '<tr><td colspan="100%" class="loading">Loading data...</td></tr>';
+        }
+
+        function updateRecordCount(count) {
+            document.getElementById('recordCount').textContent = 
+                `Showing ${count} record${count !== 1 ? 's' : ''}`;
+        }
+
+        function displayData(data) {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="100%" style="text-align:center; padding: 40px;">No data found</td></tr>';
+                return;
+            }
+
+            // Create header
+            const headers = Object.keys(data[0]);
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            const actionTh = document.createElement('th');
+            actionTh.textContent = 'Actions';
+            actionTh.style.width = '150px';
+            headerRow.appendChild(actionTh);
+            thead.appendChild(headerRow);
+
+            // Create rows
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    const value = row[header];
+                    
+                    // Format display
+                    if (value === null) {
+                        td.textContent = 'NULL';
+                        td.style.color = '#999';
+                    } else if (typeof value === 'object') {
+                        td.textContent = JSON.stringify(value);
+                    } else if (typeof value === 'boolean') {
+                        td.textContent = value ? '✓' : '✗';
+                    } else {
+                        td.textContent = value;
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                
+                const actionTd = document.createElement('td');
+                const rowData = JSON.stringify(row).replace(/"/g, '&quot;');
+                actionTd.innerHTML = `
+                    <div class="actions">
+                        <button class="btn btn-small" onclick='editRecord(${rowData})'>Edit</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteRecord('${row.id}')">Delete</button>
+                    </div>
+                `;
+                tr.appendChild(actionTd);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openCreateModal() {
+            if (!currentTable) {
+                showStatus('Please select a table first', 'error');
+                return;
+            }
+            
+            editingId = null;
+            document.getElementById('modalTitle').textContent = 'Add New Record';
+            createForm();
+            document.getElementById('recordModal').classList.add('active');
+        }
+
+        function editRecord(record) {
+            editingId = record.id;
+            document.getElementById('modalTitle').textContent = 'Edit Record';
+            createForm(record);
+            document.getElementById('recordModal').classList.add('active');
+        }
+
+        function createForm(data = {}) {
+            const form = document.getElementById('recordForm');
+            form.innerHTML = '';
+
+            const columns = tableColumns[currentTable] || Object.keys(data);
+            
+            columns.forEach(col => {
+                if (col === 'id' || col === 'created_at' || col === 'updated_at') return;
+                
+                const group = document.createElement('div');
+                group.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.textContent = col.charAt(0).toUpperCase() + col.slice(1).replace(/_/g, ' ');
+                
+                const value = data[col];
+                let input;
+                
+                // Detect field type and create appropriate input
+                if (typeof value === 'boolean' || col.includes('is_') || col.includes('has_')) {
+                    input = document.createElement('select');
+                    input.innerHTML = `
+                        <option value="true" ${value === true ? 'selected' : ''}>True</option>
+                        <option value="false" ${value === false ? 'selected' : ''}>False</option>
+                    `;
+                } else if (typeof value === 'object' && value !== null) {
+                    input = document.createElement('textarea');
+                    input.value = JSON.stringify(value, null, 2);
+                } else if (col.includes('description') || col.includes('content') || col.includes('text')) {
+                    input = document.createElement('textarea');
+                    input.value = value || '';
+                } else {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = value || '';
+                }
+                
+                input.name = col;
+                
+                group.appendChild(label);
+                group.appendChild(input);
+                form.appendChild(group);
+            });
+        }
+
+        async function saveRecord() {
+            const form = document.getElementById('recordForm');
+            const formData = new FormData(form);
+            const record = {};
+            
+            for (let [key, value] of formData.entries()) {
+                // Handle boolean values
+                if (value === 'true') record[key] = true;
+                else if (value === 'false') record[key] = false;
+                // Try to parse JSON
+                else if (value.startsWith('{') || value.startsWith('[')) {
+                    try {
+                        record[key] = JSON.parse(value);
+                    } catch {
+                        record[key] = value;
+                    }
+                }
+                // Handle empty strings as null
+                else if (value === '') record[key] = null;
+                else record[key] = value;
+            }
+
+            try {
+                if (editingId) {
+                    const { error } = await supabaseClient
+                        .from(currentTable)
+                        .update(record)
+                        .eq('id', editingId);
+                    
+                    if (error) throw error;
+                    showStatus('Record updated successfully!', 'success');
+                    
+                } else {
+                    const { error } = await supabaseClient
+                        .from(currentTable)
+                        .insert([record]);
+                    
+                    if (error) throw error;
+                    showStatus('Record created successfully!', 'success');
+                }
+                
+                closeModal();
+                loadTableData();
+                
+            } catch (error) {
+                showStatus('Error saving record: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteRecord(id) {
+            if (!confirm('Are you sure you want to delete this record?')) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from(currentTable)
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                showStatus('Record deleted successfully!', 'success');
+                loadTableData();
+                
+            } catch (error) {
+                showStatus('Error deleting record: ' + error.message, 'error');
+            }
+        }
+
+        function exportToCSV() {
+            if (!currentData || currentData.length === 0) {
+                showStatus('No data to export', 'error');
+                return;
+            }
+
+            const headers = Object.keys(currentData[0]);
+            const csv = [
+                headers.join(','),
+                ...currentData.map(row => 
+                    headers.map(header => {
+                        const value = row[header];
+                        if (value === null) return '';
+                        if (typeof value === 'object') return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+                        return `"${String(value).replace(/"/g, '""')}"`;
+                    }).join(',')
+                )
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentTable}_export_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showStatus('Data exported successfully!', 'success');
+        }
+
+        function closeModal() {
+            document.getElementById('recordModal').classList.remove('active');
+        }
+
+        function showStatus(message, type) {
+            const statusMsg = document.getElementById('statusMsg');
+            statusMsg.textContent = message;
+            statusMsg.className = 'status-msg ' + type;
+            
+            setTimeout(() => {
+                statusMsg.className = 'status-msg';
+            }, 5000);
+        }
+
+        // Initialize
+        digits[0].focus();
+    </script>
+</body>
+</html>
