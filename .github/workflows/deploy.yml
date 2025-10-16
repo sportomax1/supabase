@@ -1,24 +1,36 @@
-# Supabase Configuration File
-# Secrets will be injected by GitHub Actions during deployment
-# Do NOT put actual values here - use GitHub Repository Secrets instead
+name: Deploy Supabase CRUD App
 
-# Your 4-digit app passcode (GitHub Secret: APP_PASSCODE)
-app_passcode: "${APP_PASSCODE}"
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-# Supabase Project URL (GitHub Secret: SUPABASE_URL)
-supabase_url: "${SUPABASE_URL}"
-
-# Supabase Anon/Public API Key (GitHub Secret: SUPABASE_API_KEY)
-supabase_api_key: "${SUPABASE_API_KEY}"
-
-# Optional: Supabase Service Role Key for admin operations (GitHub Secret: SUPABASE_SERVICE_KEY)
-# Only use if you need to bypass Row Level Security
-supabase_service_key: "${SUPABASE_SERVICE_KEY}"
-
-# List your database tables here
-tables:
-  - users
-  - posts
-  - comments
-  - products
-  - orders
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Create config.js with secrets
+      run: |
+        cat > config.js << 'EOF'
+        window.APP_CONFIG = {
+          app_passcode: "${{ secrets.APP_PASSCODE }}",
+          supabase_url: "${{ secrets.SUPABASE_URL }}",
+          supabase_api_key: "${{ secrets.SUPABASE_API_KEY }}",
+          supabase_service_key: "${{ secrets.SUPABASE_SERVICE_KEY }}",
+          tables: ["users", "posts", "comments", "products", "orders"]
+        };
+        EOF
+        
+        echo "Config file created successfully"
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./
+        publish_branch: gh-pages
+        force_orphan: true
