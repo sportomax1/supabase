@@ -282,7 +282,7 @@
         <div class="table-selector">
             <label for="tableSelect">Select Table:</label>
             <select id="tableSelect" onchange="onTableChange()">
-                <option value="">-- Choose a table --</option>
+                <option value="">-- Loading tables... --</option>
             </select>
         </div>
 
@@ -325,14 +325,12 @@
         let tableColumns = {};
         let currentData = [];
 
-        // Check if config is loaded
         if (typeof CONFIG === 'undefined') {
             document.body.innerHTML = '<div style="text-align:center; padding:50px; color:white;"><h1>⚠️ Configuration Error</h1><p>App is not properly deployed. Please deploy via GitHub Actions.</p></div>';
         } else {
             appConfig = CONFIG;
         }
 
-        // Passcode handling
         const digits = [
             document.getElementById('digit1'),
             document.getElementById('digit2'),
@@ -382,25 +380,68 @@
             }
         }
 
-        function initializeApp() {
-            // Initialize Supabase with service key if available, otherwise use anon key
+        async function initializeApp() {
             const apiKey = appConfig.supabase_service_key || appConfig.supabase_api_key;
             supabaseClient = createClient(appConfig.supabase_url, apiKey);
             
-            // Load tables into dropdown
-            const select = document.getElementById('tableSelect');
-            select.innerHTML = '<option value="">-- Choose a table --</option>';
-            
-            if (appConfig.tables && appConfig.tables.length > 0) {
-                appConfig.tables.forEach(table => {
-                    const option = document.createElement('option');
-                    option.value = table;
-                    option.textContent = table;
-                    select.appendChild(option);
-                });
+            try {
+                await loadTablesFromDatabase();
+                showStatus('✓ Connected successfully! ' + (appConfig.supabase_service_key ? '(Using Service Key)' : '(Using Anon Key)'), 'success');
+            } catch (error) {
+                showStatus('Error loading tables: ' + error.message, 'error');
+                console.error('Error:', error);
             }
-            
-            showStatus('✓ Connected successfully! ' + (appConfig.supabase_service_key ? '(Using Service Key)' : '(Using Anon Key)'), 'success');
+        }
+
+        async function loadTablesFromDatabase() {
+            try {
+                // Query the information_schema to get all tables
+                const { data, error } = await supabaseClient
+                    .from('information_schema.tables')
+                    .select('table_name')
+                    .eq('table_schema', 'public');
+
+                if (error) throw error;
+
+                const select = document.getElementById('tableSelect');
+                select.innerHTML = '<option value="">-- Choose a table --</option>';
+
+                if (data && data.length > 0) {
+                    data.forEach(row => {
+                        const tableName = row.table_name;
+                        const option = document.createElement('option');
+                        option.value = tableName;
+                        option.textContent = tableName;
+                        select.appendChild(option);
+                    });
+                } else {
+                    // Fallback: try using the tables from config
+                    if (appConfig.tables && appConfig.tables.length > 0) {
+                        appConfig.tables.forEach(table => {
+                            const option = document.createElement('option');
+                            option.value = table;
+                            option.textContent = table;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Could not query information_schema:', error);
+                // Fallback to config tables
+                const select = document.getElementById('tableSelect');
+                select.innerHTML = '<option value="">-- Choose a table --</option>';
+                
+                if (appConfig.tables && appConfig.tables.length > 0) {
+                    appConfig.tables.forEach(table => {
+                        const option = document.createElement('option');
+                        option.value = table;
+                        option.textContent = table;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No tables found. Check permissions.</option>';
+                }
+            }
         }
 
         function onTableChange() {
@@ -698,7 +739,6 @@
             }, 5000);
         }
 
-        // Initialize
         if (appConfig) {
             digits[0].focus();
         }
